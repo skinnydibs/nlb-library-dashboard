@@ -32,10 +32,11 @@ app.use(limiter);
 
 /* ── NLB headers ── */
 const nlbHeaders = () => ({
-  'X-API-KEY':   NLB_API_KEY,
-  'X-APP-Code':  NLB_APP_ID,
+  'X-Api-Key':   NLB_API_KEY,
+  'X-App-Code':  NLB_APP_ID,
   'Accept':      'application/json',
   'Content-Type':'application/json',
+  'User-Agent':  'Mozilla/5.0 (compatible; NLBDashboard/1.0)',
 });
 
 /* ── Retry helper for NLB 429s ── */
