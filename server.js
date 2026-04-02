@@ -90,7 +90,9 @@ function parseBranches(items) {
 
     const b = map[code];
     b.total++;
-    if (str(item.status?.code || item.status) === 'I') b.available++;
+    const statusCode = str(item.status?.code || item.status);
+    // NLB uses 'In' for available (on shelf), 'Out' for on loan
+    if (statusCode === 'In' || statusCode === 'I') b.available++;
     b.items.push({
       itemId:  item.itemId || item.itemNo || '',
       status:  str(item.status?.name || item.status) || '',
@@ -108,16 +110,23 @@ function parseBranches(items) {
 
 /* ── determine material type label ── */
 function getTypeInfo(t) {
-  const isbn   = str(t.isbn).toLowerCase();
-  const format = str(t.format || t.materialType).toLowerCase();
+  // Use media code/name from NLB — most reliable signal
+  const mediaCode = str(t.media?.code || t.mediaCode || t.format?.code || t.format || '').toUpperCase();
+  const mediaName = str(t.media?.name || t.mediaName || t.materialType?.name || t.materialType || '').toLowerCase();
 
-  if (isbn.includes('electronic') || isbn.includes('ebook') ||
-      format.includes('ebook') || format.includes('electronic') || format.includes('digital')) {
+  // Physical book codes from NLB
+  if (mediaCode === 'BOOK' || mediaCode === 'BK') {
+    return { typeLabel: 'Book', typeFlag: 'book' };
+  }
+  // Ebook signals
+  if (mediaCode === 'EBOOK' || mediaName.includes('ebook') || mediaName.includes('electronic')) {
     return { typeLabel: 'eBook', typeFlag: 'ebook' };
   }
-  if (['cd','dvd','vcd','blu-ray','audiobook'].some(x => format.includes(x))) {
+  // AV signals
+  if (['cd','dvd','vcd','blu-ray','audio'].some(x => mediaName.includes(x))) {
     return { typeLabel: 'AV / Audio', typeFlag: 'av' };
   }
+  // Fallback: if no clear signal, treat as book (physical is more common)
   return { typeLabel: 'Book', typeFlag: 'book' };
 }
 
