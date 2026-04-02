@@ -91,7 +91,7 @@ app.get('/search', async (req, res) => {
       publisher: t.publisher     || '',
       year:      t.publishDate   || '',
       type:      t.materialType  || 'Book',
-      language:  t.language      || '',
+      language:  (Array.isArray(t.language) ? t.language[0] : t.language) || '',
       cover:     t.coverUrl      || null,
     }));
 
