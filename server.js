@@ -192,6 +192,24 @@ app.get('/availability', async (req, res) => {
 /* ── Health check ── */
 app.get('/health', (_, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
 
+/* ── Debug: raw NLB availability response ── */
+app.get('/debug/availability', async (req, res) => {
+  const brn = (req.query.brn || '').trim();
+  if (!brn) return res.status(400).json({ error: 'brn required' });
+  try {
+    const url  = `${NLB_BASE}/GetAvailabilityInfo?BRN=${encodeURIComponent(brn)}`;
+    const data = await nlbFetch(url);
+    // Return first 3 items raw so we can see actual field names
+    res.json({ 
+      totalItems: (data.items || []).length,
+      sampleFields: data.items ? Object.keys(data.items[0] || {}) : [],
+      sample: (data.items || []).slice(0, 3)
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`NLB Proxy running on port ${PORT}`);
 });
