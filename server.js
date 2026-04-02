@@ -39,26 +39,40 @@ const nlbHeaders = () => ({
   'User-Agent':  'Mozilla/5.0 (compatible; NLBDashboard/1.0)',
 });
 
-/* ── Retry helper for NLB 429s ── */
-async function nlbFetch(url, retries = 3) {
+/* ── Retry helper for NLB 429s — with 8s timeout per attempt ── */
+async function nlbFetch(url, retries = 2) {
   for (let i = 0; i < retries; i++) {
-    const res = await fetch(url, { headers: nlbHeaders() });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000); // 8s timeout
 
-    if (res.status === 429) {
-      const wait = Math.pow(2, i) * 1000; // 1s, 2s, 4s
-      console.warn(`NLB rate limit hit. Retrying in ${wait}ms...`);
-      await new Promise(r => setTimeout(r, wait));
-      continue;
+    try {
+      const res = await fetch(url, { headers: nlbHeaders(), signal: controller.signal });
+      clearTimeout(timer);
+
+      if (res.status === 429) {
+        const wait = 1000; // flat 1s wait, not exponential
+        console.warn(`NLB rate limit hit. Retrying in ${wait}ms...`);
+        await new Promise(r => setTimeout(r, wait));
+        continue;
+      }
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`NLB API error ${res.status}: ${text}`);
+      }
+
+      return res.json();
+    } catch (err) {
+      clearTimeout(timer);
+      if (err.name === 'AbortError') {
+        console.warn(`NLB request timed out (attempt ${i+1})`);
+        if (i === retries - 1) throw new Error('NLB API timed out. Please try refreshing.');
+        continue;
+      }
+      throw err;
     }
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`NLB API error ${res.status}: ${text}`);
-    }
-
-    return res.json();
   }
-  throw new Error('NLB API rate limit exceeded after retries. Please try again shortly.');
+  throw new Error('NLB API unavailable after retries. Please try again shortly.');
 }
 
 /* ══════════════════════════════════════════════
