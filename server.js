@@ -161,18 +161,91 @@ app.get('/search', async (req, res) => {
   }
 });
 
-/* ══════════════════════════
-   GET /availability?brn=...
-══════════════════════════ */
+/* ══════════════════════════════════════════════
+   GET /availability?brn=...&title=...&author=...
+   Fetches ALL editions of a title and merges
+   availability so no copies are missed.
+══════════════════════════════════════════════ */
 app.get('/availability', async (req, res) => {
-  const brn = (req.query.brn || '').trim();
+  const brn    = (req.query.brn    || '').trim();
+  const title  = (req.query.title  || '').trim();
+  const author = (req.query.author || '').trim();
   if (!brn) return res.status(400).json({ error: 'brn is required' });
 
   try {
-    const url  = `${NLB_BASE}/GetAvailabilityInfo?BRN=${encodeURIComponent(brn)}`;
-    const data = await nlbFetch(url);
-    const branches = parseBranches(data.items);
-    res.json({ brn, branches });
+    // Step 1: Find all BRNs for this title/author combination
+    let allBrns = [brn];
+
+    if (title) {
+      try {
+        const searchUrl = `${NLB_BASE}/GetTitles?Title=${encodeURIComponent(title)}&Limit=40&MediaCode=BK`;
+        const searchData = await nlbFetch(searchUrl);
+        const titles = searchData.titles || [];
+
+        // Keep BRNs that match same title (fuzzy) and optionally author
+        const titleLower  = title.toLowerCase();
+        const authorLower = author.toLowerCase();
+
+        const matchingBrns = titles
+          .filter(t => {
+            const tTitle  = str(t.title).toLowerCase();
+            const tAuthor = str(t.author).toLowerCase();
+            const titleMatch  = tTitle.includes(titleLower) || titleLower.includes(tTitle.split(':')[0].trim());
+            const authorMatch = !author || tAuthor.includes(authorLower.split(',')[0].trim()) || authorLower.includes(tAuthor.split(',')[0].trim());
+            return titleMatch && authorMatch;
+          })
+          .map(t => String(t.brn))
+          .filter(Boolean);
+
+        if (matchingBrns.length > 0) {
+          // Merge with original BRN, deduplicate
+          allBrns = [...new Set([brn, ...matchingBrns])];
+        }
+      } catch (searchErr) {
+        console.warn('Title search for BRN merge failed:', searchErr.message);
+        // Fall back to just the original BRN
+      }
+    }
+
+    console.log(`Fetching availability for ${allBrns.length} BRN(s) for "${title || brn}":`, allBrns);
+
+    // Step 2: Fetch availability for all BRNs in parallel
+    const availResults = await Promise.all(
+      allBrns.map(async b => {
+        try {
+          const url  = `${NLB_BASE}/GetAvailabilityInfo?BRN=${encodeURIComponent(b)}`;
+          const data = await nlbFetch(url);
+          return parseBranches(data.items);
+        } catch (err) {
+          console.warn(`Availability fetch failed for BRN ${b}:`, err.message);
+          return {};
+        }
+      })
+    );
+
+    // Step 3: Merge all branch maps — sum copies, take best status
+    const merged = {};
+    availResults.forEach(branchMap => {
+      Object.entries(branchMap).forEach(([code, info]) => {
+        if (!merged[code]) {
+          merged[code] = { ...info, total: 0, available: 0, items: [] };
+        }
+        merged[code].total     += info.total;
+        merged[code].available += info.available;
+        merged[code].items      = [...merged[code].items, ...info.items];
+        // Keep shelf info from whichever has it
+        if (!merged[code].shelf?.callno && info.shelf?.callno) {
+          merged[code].shelf = info.shelf;
+        }
+      });
+    });
+
+    // Recompute status after merge
+    Object.values(merged).forEach(b => {
+      b.status = b.available >= 2 ? 'yes' : b.available === 1 ? 'low' : 'no';
+    });
+
+    res.json({ brn, brnsChecked: allBrns, branches: merged });
   } catch (err) {
     console.error('/availability error:', err.message);
     res.status(500).json({ error: err.message });
