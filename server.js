@@ -79,17 +79,16 @@ async function nlbFetch(url, retries = 2) {
    ROUTE 1: GET /search
    Query params:
      q       — keyword / title / author (required)
-     limit   — max results (default 10, max 30)
-   Returns: physical books only, with live availability pre-fetched
+     limit   — max results (default 15, max 40)
+   Returns: physical books only (fast, no availability pre-fetch)
 ══════════════════════════════════════════════ */
 app.get('/search', async (req, res) => {
   const q     = (req.query.q || '').trim();
-  const limit = Math.min(parseInt(req.query.limit) || 20, 40);
+  const limit = Math.min(parseInt(req.query.limit) || 30, 40);
 
   if (!q) return res.status(400).json({ error: 'Query parameter q is required.' });
 
   try {
-    // Fetch more titles than needed since we'll filter out digital-only
     const url  = `${NLB_BASE}/GetTitles?Keywords=${encodeURIComponent(q)}&Limit=${limit}&MediaCode=BK`;
     const data = await nlbFetch(url);
 
@@ -97,77 +96,37 @@ app.get('/search', async (req, res) => {
       return res.json({ results: [] });
     }
 
-    // Check availability for each title in parallel (with concurrency limit)
-    const titles = data.titles;
-    const CONCURRENCY = 5;
-    const resultsWithAvail = [];
+    const results = data.titles.map(t => {
+      // Determine if physical book or digital/other
+      const isbn    = (t.isbn || '').toLowerCase();
+      const format  = t.format || t.materialType || '';
+      const isEbook = isbn.includes('electronic') || isbn.includes('ebook') ||
+                      format.toLowerCase().includes('ebook') ||
+                      format.toLowerCase().includes('electronic') ||
+                      format.toLowerCase().includes('digital');
+      const isAV    = ['cd','dvd','vcd','blu-ray','audiobook','audio cd'].some(x =>
+                        format.toLowerCase().includes(x));
 
-    for (let i = 0; i < titles.length; i += CONCURRENCY) {
-      const batch = titles.slice(i, i + CONCURRENCY);
-      const batchResults = await Promise.all(batch.map(async t => {
-        try {
-          const availUrl  = `${NLB_BASE}/GetAvailabilityInfo?BRN=${t.brn}`;
-          const availData = await nlbFetch(availUrl);
-          const items     = availData.items || [];
+      let typeLabel = 'Book';
+      let typeFlag  = 'book'; // book | ebook | av
+      if (isEbook)      { typeLabel = 'eBook'; typeFlag = 'ebook'; }
+      else if (isAV)    { typeLabel = 'AV / Audiobook'; typeFlag = 'av'; }
 
-          // Only include if it has physical copies somewhere
-          if (items.length === 0) return null;
+      return {
+        brn:       t.brn,
+        title:     t.title    || 'Unknown title',
+        author:    t.author   || '',
+        isbn:      t.isbn     || '',
+        publisher: t.publisher || '',
+        year:      t.publishDate || '',
+        language:  (Array.isArray(t.language) ? t.language[0] : t.language) || '',
+        cover:     t.coverUrl || null,
+        typeLabel,
+        typeFlag,
+      };
+    });
 
-          // Build branch availability map
-          const branches = {};
-          items.forEach(item => {
-            const code = item.location?.code;
-            const name = item.location?.name || code;
-            if (!code) return;
-            if (!branches[code]) {
-              branches[code] = {
-                branchCode: code,
-                branchName: name,
-                total: 0, available: 0,
-                shelf: {
-                  section: item.usageLevel?.name || '',
-                  level:   '',
-                  callno:  item.formattedCallNumber || item.callNumber || '',
-                },
-                items: [],
-              };
-            }
-            branches[code].total++;
-            if (item.status?.code === 'I') branches[code].available++;
-            branches[code].items.push({
-              itemNo:  item.itemId,
-              status:  item.status?.name || '',
-              dueDate: item.transactionStatus?.date || null,
-            });
-          });
-
-          // Compute status per branch
-          Object.values(branches).forEach(b => {
-            b.status = b.available === 0 ? 'no' : b.available === 1 ? 'low' : 'yes';
-          });
-
-          return {
-            brn:       t.brn,
-            title:     t.title    || 'Unknown title',
-            author:    t.author   || '',
-            isbn:      t.isbn     || '',
-            publisher: t.publisher || '',
-            year:      t.publishDate || '',
-            language:  (Array.isArray(t.language) ? t.language[0] : t.language) || '',
-            cover:     t.coverUrl || null,
-            branches,  // pre-fetched availability
-          };
-        } catch (err) {
-          console.warn(`Availability check failed for BRN ${t.brn}:`, err.message);
-          return null;
-        }
-      }));
-      resultsWithAvail.push(...batchResults.filter(Boolean));
-      // Stop once we have 10 valid physical results
-      if (resultsWithAvail.length >= 10) break;
-    }
-
-    res.json({ results: resultsWithAvail.slice(0, 10) });
+    res.json({ results });
   } catch (err) {
     console.error('/search error:', err.message);
     res.status(500).json({ error: err.message });
