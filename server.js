@@ -144,34 +144,35 @@ app.get('/availability', async (req, res) => {
     const branchMap = {};
 
     data.items.forEach(item => {
-      const key  = item.branchCode || item.branchName;
-      const name = item.branchName || key;
+      const code = item.location?.code || '';
+      const name = item.location?.name || code;
+      if (!code) return;
 
-      if (!branchMap[key]) {
-        branchMap[key] = {
-          branchCode: key,
+      if (!branchMap[code]) {
+        branchMap[code] = {
+          branchCode: code,
           branchName: name,
           total:      0,
           available:  0,
           shelf: {
-            section:  item.locationDesc  || '',
-            level:    item.levelDesc     || '',
-            callno:   item.callNumber    || '',
+            section:  item.usageLevel?.name || '',
+            level:    '',
+            callno:   item.formattedCallNumber || item.callNumber || '',
           },
           items: [],
         };
       }
 
-      const b = branchMap[key];
+      const b = branchMap[code];
       b.total++;
 
-      const isAvail = item.statusCode === 'I'; // 'I' = In — available
+      const isAvail = item.status?.code === 'I'; // 'I' = In — on shelf
       if (isAvail) b.available++;
 
       b.items.push({
-        itemNo:  item.itemNo,
-        status:  item.statusDesc || item.statusCode,
-        dueDate: item.dueDate    || null,
+        itemNo:  item.itemId,
+        status:  item.status?.name || '',
+        dueDate: item.transactionStatus?.date || null,
       });
     });
 
