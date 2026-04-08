@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NLB Library Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Courier+Prime:wght@400;700&family=Libre+Baskerville:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+<style>
+/* ── TOKENS ── */
+:root {
+  --cream:     #f5f0e8;
+  --cream-mid: #ede8dc;
+  --cream-drk: #e0d8c8;
+  --ink:       #2a2318;
+  --ink-mid:   #5a4a32;
+  --ink-lt:    #8a7a62;
+  --ink-faint: #b8a888;
+  --border:    #c8b99a;
+  --border-lt: #ddd5be;
+  --card-bg:   #faf6ed;
+  --card-back: #fefcf6;
+  --terracotta:#c44a1a;
+  --green:     #3a6a2a;
+  --amber:     #8a6a1a;
+  --r: 0; /* page pad */
+  --pad: 20px;
+  --radius: 2px;
+  --transition: 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── RESET ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Courier Prime', monospace;
+  background: var(--cream);
+  color: var(--ink);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ── HEADER ── */
+.header {
+  padding: 24px var(--pad) 18px;
+  border-bottom: 3px double var(--ink);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  background: var(--cream);
+  z-index: 50;
+}
+.header-left {}
+.site-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(20px, 5vw, 26px);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+.site-sub {
+  font-size: 9px;
+  color: var(--ink-lt);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin-top: 5px;
+}
+.date-stamp {
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--terracotta);
+  border: 1.5px solid var(--terracotta);
+  padding: 4px 10px;
+  transform: rotate(-1.5deg);
+  display: inline-block;
+  opacity: 0.9;
+  flex-shrink: 0;
+}
+
+/* ── SEARCH ── */
+.search-wrap {
+  padding: 16px var(--pad);
+  background: var(--cream-mid);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 73px;
+  z-index: 40;
+}
+.search-row { display: flex; gap: 8px; }
+.search-input {
+  font-family: 'Courier Prime', monospace;
+  font-size: 15px;
+  background: var(--cream);
+  border: 1.5px solid var(--border);
+  color: var(--ink);
+  padding: 10px 16px;
+  flex: 1;
+  min-width: 0;
+  outline: none;
+  border-radius: var(--radius);
+  transition: border-color var(--transition);
+  -webkit-appearance: none;
+}
+.search-input::placeholder { color: var(--ink-faint); }
+.search-input:focus { border-color: var(--ink); }
+.search-go {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 10px 20px;
+  border: none;
+  background: var(--ink);
+  color: var(--cream);
+  cursor: pointer;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-radius: var(--radius);
+  transition: opacity var(--transition);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.search-go:hover  { opacity: 0.82; }
+.search-go:active { opacity: 0.7; transform: scale(0.98); }
+.search-go:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── SEARCH RESULTS ── */
+.sr-wrap { position: relative; }
+.sr-panel {
+  position: absolute;
+  top: 4px; left: 0; right: 0;
+  background: var(--card-bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 40px rgba(42,35,24,0.14), 0 2px 8px rgba(42,35,24,0.08);
+  z-index: 200;
+  max-height: 70vh;
+  overflow-y: auto;
+  display: none;
+  -webkit-overflow-scrolling: touch;
+}
+.sr-panel.open { display: block; }
+.sr-item {
+  display: flex;
+  gap: 14px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-lt);
+  align-items: flex-start;
+  transition: background var(--transition);
+}
+.sr-item:last-child { border-bottom: none; }
+.sr-thumb {
+  width: 38px; height: 52px;
+  flex-shrink: 0;
+  background: var(--cream-drk);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius);
+}
+.sr-thumb::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(135deg, transparent, transparent 3px, rgba(42,35,24,0.04) 3px, rgba(42,35,24,0.04) 4px);
+}
+.sr-initial {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  color: var(--ink-lt);
+  position: relative;
+  z-index: 1;
+}
+.sr-body { flex: 1; min-width: 0; }
+.sr-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--ink);
+}
+.sr-author {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 11px;
+  color: var(--ink-lt);
+  font-style: italic;
+  margin-top: 2px;
+}
+.sr-meta { font-size: 9px; color: var(--ink-faint); letter-spacing: 0.05em; margin-top: 3px; }
+.sr-foot { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.type-pill {
+  font-family: 'Courier Prime', monospace;
+  font-size: 7px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border: 1px solid;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+.type-book  { color: var(--green); border-color: var(--green); }
+.type-ebook { color: var(--terracotta); border-color: var(--terracotta); }
+.type-av    { color: var(--amber); border-color: var(--amber); }
+.add-btn {
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 12px;
+  border: 1.5px solid var(--green);
+  color: var(--green);
+  background: transparent;
+  cursor: pointer;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 20px;
+  transition: all var(--transition);
+}
+.add-btn:hover:not(:disabled) { background: var(--green); color: var(--cream); }
+.add-btn:disabled { border-color: var(--ink-faint); color: var(--ink-faint); cursor: default; }
+.sr-msg { padding: 24px 16px; text-align: center; font-size: 13px; color: var(--ink-lt); font-family: 'Libre Baskerville', serif; font-style: italic; }
+.sr-loading { padding: 24px 16px; text-align: center; }
+.sr-loading::after {
+  content: '';
+  display: inline-block;
+  width: 18px; height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── CONTROLS STRIP ── */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.controls::-webkit-scrollbar { display: none; }
+.ctrl-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px var(--pad);
+  border-right: 1px solid var(--border-lt);
+  flex-shrink: 0;
+}
+.ctrl-group:last-child { border-right: none; margin-left: auto; }
+.ctrl-lbl {
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+.ctrl-select {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--ink);
+  padding: 3px 6px;
+  outline: none;
+  cursor: pointer;
+  border-radius: var(--radius);
+  max-width: 120px;
+}
+.ctrl-btn {
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink-mid);
+  cursor: pointer;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 20px;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+.ctrl-btn:hover { border-color: var(--ink); color: var(--ink); }
+.ctrl-btn.on { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+
+/* ── BRANCH STRIP ── */
+.branch-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px var(--pad);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.branch-strip::-webkit-scrollbar { display: none; }
+.b-tab {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  padding: 4px 14px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink-mid);
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: all var(--transition);
+  white-space: nowrap;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+.b-tab:hover { border-color: var(--ink); color: var(--ink); }
+.b-tab.on { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+.b-manage {
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  padding: 4px 12px;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--ink-faint);
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  border-radius: 20px;
+  flex-shrink: 0;
+  transition: all var(--transition);
+}
+.b-manage:hover { color: var(--ink); border-color: var(--ink); }
+.b-plan {
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 5px 16px;
+  border: none;
+  background: var(--ink);
+  color: var(--cream);
+  cursor: pointer;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 20px;
+  flex-shrink: 0;
+  margin-left: auto;
+  transition: opacity var(--transition);
+}
+.b-plan:hover { opacity: 0.8; }
+
+/* ── BRANCH PANEL ── */
+.branch-panel {
+  background: var(--cream-mid);
+  border-bottom: 1px solid var(--border);
+  padding: 0 var(--pad);
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+}
+.branch-panel.open {
+  max-height: 300px;
+  padding: 16px var(--pad);
+}
+.bp-title { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-lt); margin-bottom: 12px; }
+.bp-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.bp-item { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; color: var(--ink-mid); }
+.bp-item input { accent-color: var(--ink); width: 14px; height: 14px; cursor: pointer; }
+.bp-actions { display: flex; gap: 8px; }
+.bp-btn {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  padding: 4px 14px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink-mid);
+  cursor: pointer;
+  border-radius: 20px;
+  letter-spacing: 0.06em;
+  transition: all var(--transition);
+}
+.bp-btn:hover { border-color: var(--ink); color: var(--ink); }
+.bp-btn.primary { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+
+/* ── PLAN BOX ── */
+.plan-box {
+  margin: 16px var(--pad);
+  border: 1.5px solid var(--ink);
+  background: var(--cream-mid);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: none;
+  animation: slideDown 0.24s ease;
+}
+.plan-box.open { display: block; }
+@keyframes slideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+.plan-inner { padding: 18px 20px; position: relative; }
+.plan-close {
+  position: absolute; top: 14px; right: 16px;
+  font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-faint); cursor: pointer; border: none; background: none;
+  font-family: 'Courier Prime', monospace;
+  transition: color var(--transition);
+}
+.plan-close:hover { color: var(--ink); }
+.plan-head { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 6px; padding-right: 48px; }
+.plan-name { font-family: 'Playfair Display', serif; font-size: clamp(16px, 4vw, 20px); font-weight: 500; }
+.best-bet { display: flex; flex-direction: column; align-items: center; opacity: 0; transform: rotate(5deg); flex-shrink: 0; }
+.bb-top  { font-family: 'Courier Prime', monospace; font-size: 7px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--terracotta); border-top: 1.5px solid var(--terracotta); border-bottom: 1px solid var(--terracotta); padding: 1px 5px; text-align: center; width: 100%; }
+.bb-main { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 500; color: var(--terracotta); line-height: 1; text-align: center; border-bottom: 1.5px solid var(--terracotta); padding-bottom: 1px; width: 100%; }
+.bb-sub  { font-family: 'Courier Prime', monospace; font-size: 7px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--terracotta); padding-top: 2px; text-align: center; }
+@keyframes betIn { 0%{opacity:0;transform:rotate(5deg) scale(0.3)} 60%{opacity:1;transform:rotate(5deg) scale(1.08)} 80%{transform:rotate(5deg) scale(0.96)} 100%{opacity:0.9;transform:rotate(5deg) scale(1)} }
+.bet-animate { animation: betIn 0.42s cubic-bezier(0.22,1,0.36,1) forwards; }
+.plan-avail { font-size: 12px; color: var(--green); font-weight: 700; letter-spacing: 0.04em; margin-bottom: 12px; }
+.plan-row { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
+.plan-lbl { font-size: 8px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); }
+.plan-val { font-size: 12px; color: var(--ink-mid); line-height: 1.5; }
+.maps-link { font-family: 'Courier Prime', monospace; font-size: 11px; color: var(--green); text-decoration: none; border-bottom: 1px solid var(--green); display: inline-block; margin-top: 3px; transition: opacity var(--transition); }
+.maps-link:hover { opacity: 0.7; }
+.pg-note { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); font-size: 11px; color: var(--ink-lt); font-style: italic; font-family: 'Libre Baskerville', serif; line-height: 1.5; }
+.pg-lbl { font-style: normal; font-family: 'Courier Prime', monospace; font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); display: block; margin-bottom: 3px; }
+
+/* ── SUMMARY ── */
+.summary {
+  display: flex;
+  padding: 14px var(--pad);
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.summary::-webkit-scrollbar { display: none; }
+.sum-item { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 0 20px; border-right: 1px solid var(--border-lt); flex-shrink: 0; }
+.sum-item:first-child { padding-left: 0; }
+.sum-item:last-child { border-right: none; }
+.sum-n { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 400; line-height: 1; }
+.sum-l { font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-lt); }
+
+/* ── BOOKS LIST ── */
+.books-list { padding: 0; }
+.empty-state { padding: 60px var(--pad); text-align: center; }
+.empty-title { font-family: 'Playfair Display', serif; font-size: 20px; color: var(--ink-lt); margin-bottom: 8px; font-weight: 400; }
+.empty-sub { font-size: 12px; color: var(--ink-faint); font-family: 'Libre Baskerville', serif; font-style: italic; line-height: 1.6; }
+.no-results { padding: 32px var(--pad); text-align: center; font-size: 12px; color: var(--ink-faint); font-style: italic; font-family: 'Libre Baskerville', serif; display: none; }
+
+/* ── BOOK CARD (MOBILE — full width, stacked) ── */
+.book-card {
+  padding: var(--pad);
+  border-bottom: 1px solid var(--border-lt);
+  transition: background var(--transition);
+}
+.book-card.dim { opacity: 0.45; }
+
+/* index card itself */
+.idx-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  padding: 14px 16px 12px;
+  position: relative;
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+}
+/* dog ear */
+.idx-card::before {
+  content: '';
+  position: absolute; top: 0; right: 0;
+  width: 18px; height: 18px;
+  background: linear-gradient(225deg, var(--border) 50%, var(--card-bg) 50%);
+  border-radius: 0 0 0 var(--radius);
+}
+/* worn bottom edge */
+.idx-card::after {
+  content: '';
+  position: absolute; bottom: 0; left: 4px; right: 4px; height: 1px;
+  background: repeating-linear-gradient(to right, var(--border) 0, var(--border) 3px, transparent 3px, transparent 7px);
+  opacity: 0.4;
+}
+.book-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1.3;
+  padding-right: 40px;
+}
+.book-author {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 11px;
+  color: var(--ink-lt);
+  font-style: italic;
+  margin-top: 4px;
+}
+.book-meta { font-size: 9px; color: var(--ink-faint); letter-spacing: 0.06em; margin-top: 6px; }
+.flip-hint { font-size: 9px; color: var(--ink-faint); font-style: italic; font-family: 'Libre Baskerville', serif; margin-top: 8px; line-height: 1.4; }
+.rm-btn {
+  position: absolute; top: 12px; right: 12px;
+  background: none; border: none; cursor: pointer;
+  font-size: 9px; color: var(--border); font-family: 'Courier Prime', monospace;
+  letter-spacing: 0.04em; padding: 2px;
+  transition: color var(--transition);
+}
+.rm-btn:hover { color: var(--terracotta); }
+
+/* ── BRANCH DOT ROW (mobile) ── */
+.dot-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 2px 0 0;
+}
+.dot-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px 5px 7px;
+  border: 1px solid var(--border-lt);
+  border-radius: 20px;
+  background: var(--cream-mid);
+  cursor: default;
+  transition: all var(--transition);
+  min-width: 0;
+}
+.dot-item.tappable { cursor: pointer; }
+.dot-item.tappable:hover { border-color: var(--ink); background: var(--cream-drk); }
+.dot-item.tappable:active { transform: scale(0.97); }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot-yes { background: var(--green); }
+.dot-no  { background: var(--terracotta); opacity: 0.35; }
+.dot-low { background: var(--amber); }
+.dot-lbl {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: var(--ink-mid);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90px;
+}
+.dot-count {
+  font-size: 9px;
+  color: var(--ink-faint);
+  flex-shrink: 0;
+}
+
+/* shimmer */
+.shimmer-row { display: flex; gap: 6px; padding: 2px 0 0; }
+.shimmer-dot { width: 80px; height: 28px; background: linear-gradient(90deg, var(--cream-drk) 25%, var(--cream-mid) 50%, var(--cream-drk) 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 20px; }
+@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+.avail-error { display: flex; align-items: center; gap: 10px; padding-top: 4px; }
+.avail-error span { font-size: 10px; color: var(--ink-faint); letter-spacing: 0.06em; text-transform: uppercase; }
+.retry-btn { font-family: 'Courier Prime', monospace; font-size: 9px; padding: 3px 12px; border: 1px solid var(--border); background: transparent; cursor: pointer; letter-spacing: 0.06em; border-radius: 20px; transition: all var(--transition); }
+.retry-btn:hover { border-color: var(--ink); }
+
+/* ── SHELF PANEL (slides down below card) ── */
+.shelf-panel {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.32s cubic-bezier(0.4,0,0.2,1);
+  margin-bottom: 0;
+}
+.shelf-panel.open {
+  max-height: 200px;
+  margin-bottom: 2px;
+}
+.shelf-inner {
+  background: var(--card-back);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  position: relative;
+  box-shadow: 0 4px 16px rgba(42,35,24,0.1);
+}
+.shelf-top {
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--border-lt); padding-bottom: 8px; margin-bottom: 10px;
+  flex-wrap: wrap; gap: 6px;
+}
+.shelf-branch-lbl { font-size: 8px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-lt); }
+.shelf-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.shelf-tab {
+  font-family: 'Courier Prime', monospace;
+  font-size: 8px; padding: 2px 8px;
+  border: 1px solid var(--border);
+  background: transparent; color: var(--ink-lt);
+  cursor: pointer; border-radius: 20px;
+  transition: all var(--transition);
+}
+.shelf-tab:hover { border-color: var(--ink); color: var(--ink); }
+.shelf-tab.on { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+.shelf-fields { display: flex; gap: 20px; flex-wrap: wrap; }
+.shelf-field { display: flex; flex-direction: column; gap: 3px; }
+.sf-lbl { font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); }
+.sf-val { font-family: 'Courier Prime', monospace; font-size: 13px; color: var(--ink); font-weight: 700; }
+.sf-val.callno { font-size: 15px; color: var(--terracotta); letter-spacing: 0.03em; }
+.shelf-na { font-size: 11px; color: var(--ink-faint); font-style: italic; font-family: 'Libre Baskerville', serif; }
+.shelf-close-hint { font-size: 9px; color: var(--ink-faint); font-style: italic; font-family: 'Libre Baskerville', serif; margin-top: 10px; }
+
+/* ── DESKTOP ENHANCEMENTS ── */
+@media (min-width: 700px) {
+  :root { --pad: 28px; }
+  .header { padding: 28px var(--pad) 20px; }
+  .search-wrap { top: 81px; }
+  .controls { padding: 0; }
+  .ctrl-group { padding: 10px var(--pad); }
+  .book-card { padding: 20px var(--pad); }
+  .dot-row { gap: 8px; }
+  .dot-lbl { max-width: 120px; }
+}
+
+/* ── LEGEND ── */
+.legend {
+  padding: 14px var(--pad);
+  border-top: 2px double var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.leg-item { display: flex; align-items: center; gap: 7px; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-lt); }
+.leg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.leg-r { margin-left: auto; font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: 28px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--ink); color: var(--cream);
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px; letter-spacing: 0.06em;
+  padding: 10px 22px;
+  border-radius: 20px;
+  opacity: 0;
+  transition: all 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 999; pointer-events: none; white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── SPOTLIGHT (back-card open) ── */
+.books-list.spotlit .book-card:not(.focus) { opacity: 0.3; pointer-events: none; transition: opacity 0.25s; }
+.book-card.focus { position: relative; z-index: 3; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-left">
+    <div class="site-title">My Library</div>
+    <div class="site-sub">NLB Reading List · Live Availability</div>
+  </div>
+  <div class="date-stamp" id="lastChecked">Loading...</div>
+</header>
+
+<!-- SEARCH -->
+<div class="search-wrap">
+  <div class="search-row">
+    <input class="search-input" type="text" id="mainSearch" placeholder="Search by title or author..." autocomplete="off" />
+    <button class="search-go" id="searchBtn" onclick="doSearch()">Search</button>
+  </div>
+  <div class="sr-wrap">
+    <div class="sr-panel" id="searchResults"
+      onmousedown="event.stopPropagation()"
+      ontouchstart="event.stopPropagation()"></div>
+  </div>
+</div>
+
+<!-- CONTROLS -->
+<div class="controls">
+  <div class="ctrl-group">
+    <span class="ctrl-lbl">Sort</span>
+    <select class="ctrl-select" id="sortSel" onchange="renderBooks()">
+      <option value="default">Default</option>
+      <option value="title">A to Z</option>
+      <option value="avail">Most available</option>
+    </select>
+  </div>
+  <div class="ctrl-group">
+    <span class="ctrl-lbl">Filter</span>
+    <button class="ctrl-btn" id="availToggle" onclick="toggleAvailFilter()">Available now</button>
+    <select class="ctrl-select" id="langSel" onchange="renderBooks()">
+      <option value="all">All languages</option>
+      <option value="english">English</option>
+      <option value="chinese">Chinese</option>
+      <option value="malay">Malay</option>
+      <option value="tamil">Tamil</option>
+    </select>
+  </div>
+  <div class="ctrl-group">
+    <button class="ctrl-btn" onclick="refreshAll()">Refresh</button>
+  </div>
+</div>
+
+<!-- BRANCH STRIP -->
+<div class="branch-strip" id="branchStrip"></div>
+
+<!-- BRANCH PANEL -->
+<div class="branch-panel" id="branchPanel">
+  <div class="bp-title">Select branches to display</div>
+  <div class="bp-grid" id="branchChecks"></div>
+  <div class="bp-actions">
+    <button class="bp-btn" onclick="selectAllBranches()">Select all</button>
+    <button class="bp-btn" onclick="clearAllBranches()">Clear all</button>
+    <button class="bp-btn primary" onclick="applyBranches()">Apply</button>
+  </div>
+</div>
+
+<!-- PLAN MY VISIT -->
+<div class="plan-box" id="planBox">
+  <div class="plan-inner">
+    <button class="plan-close" onclick="closePlan()">close ×</button>
+    <div class="plan-head">
+      <div class="plan-name" id="planName"></div>
+      <div class="best-bet" id="bestBet">
+        <div class="bb-top">library</div>
+        <div class="bb-main">BEST<br>BET</div>
+        <div class="bb-sub">today</div>
+      </div>
+    </div>
+    <div class="plan-avail" id="planAvail"></div>
+    <div class="plan-row">
+      <span class="plan-lbl">Address</span>
+      <span class="plan-val" id="planAddr"></span>
+      <a class="maps-link" id="planMaps" href="#" target="_blank">Get directions</a>
+    </div>
+    <div class="plan-row">
+      <span class="plan-lbl">Opening hours</span>
+      <span class="plan-val" id="planHours"></span>
+    </div>
+    <div class="pg-note" id="planPg" style="display:none"></div>
+  </div>
+</div>
+
+<!-- SUMMARY -->
+<div class="summary">
+  <div class="sum-item"><div class="sum-n" id="sTotal">0</div><div class="sum-l">On list</div></div>
+  <div class="sum-item"><div class="sum-n" style="color:var(--green)" id="sAvail">0</div><div class="sum-l">Available</div></div>
+  <div class="sum-item"><div class="sum-n" style="color:var(--amber)" id="sLow">0</div><div class="sum-l">Last copy</div></div>
+  <div class="sum-item"><div class="sum-n" style="color:var(--terracotta)" id="sLoan">0</div><div class="sum-l">On loan</div></div>
+</div>
+
+<!-- BOOKS -->
+<div class="books-list" id="booksList"></div>
+<div class="no-results" id="noResults">No books match your current filters.</div>
+
+<!-- LEGEND -->
+<div class="legend">
+  <div class="leg-item"><div class="leg-dot" style="background:var(--green)"></div>Available</div>
+  <div class="leg-item"><div class="leg-dot" style="background:var(--amber)"></div>Last copy</div>
+  <div class="leg-item"><div class="leg-dot" style="background:var(--terracotta);opacity:0.35"></div>On loan</div>
+  <div class="leg-r" id="legCount">0 titles</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════════
+   CONFIG
+═══════════════════════════════ */
+const PROXY = 'https://YOUR-APP-NAME.onrender.com'; // <-- UPDATE THIS
+
+/* ═══════════════════════════════
+   BRANCH DATA
+═══════════════════════════════ */
+const BRANCHES = [
+  { key:'geylang',      code:'GEPL',  label:'Geylang',       name:'Geylang East Public Library',       address:'50 Geylang East Ave 1 #03-01',               maps:'https://maps.google.com/?q=Geylang+East+Public+Library+Singapore',     hours:'Mon to Sun, 10am to 9pm',  pg:'Geylang East Park playground is a 4 min walk.' },
+  { key:'central',      code:'CLL',   label:'Central',        name:'Central Public Library',            address:'100 Victoria Street, National Library Bldg', maps:'https://maps.google.com/?q=National+Library+Singapore',               hours:'Mon to Sun, 10am to 9pm',  pg:'Bras Basah Park is right next door.' },
+  { key:'tampines',     code:'TRL',   label:'Tampines',       name:'Tampines Regional Library',         address:'1 Tampines Walk, Our Tampines Hub #03-01',   maps:'https://maps.google.com/?q=Tampines+Regional+Library+Singapore',     hours:'Mon to Sun, 10am to 9pm',  pg:'Our Tampines Hub water play area on L1. Bring a change of clothes for Hugo.' },
+  { key:'pasirris',     code:'PRPL',  label:'Pasir Ris',      name:'Pasir Ris Public Library',          address:'1 Pasir Ris Central St 3 #04-01',            maps:'https://maps.google.com/?q=Pasir+Ris+Public+Library+Singapore',      hours:'Mon to Sun, 10am to 9pm',  pg:'Downtown East nearby has plenty of outdoor space.' },
+  { key:'punggol',      code:'PRL',   label:'Punggol',        name:'Punggol Regional Library',          address:'1 Punggol Drive #04-01 Punggol Town Hub',    maps:'https://maps.google.com/?q=Punggol+Regional+Library+Singapore',      hours:'Mon to Sun, 10am to 9pm',  pg:'Punggol Waterway Park is a short walk. Huge playground along the river.' },
+  { key:'woodlands',    code:'WRL',   label:'Woodlands',      name:'Woodlands Regional Library',        address:'900 South Woodlands Drive #01-01',           maps:'https://maps.google.com/?q=Woodlands+Regional+Library+Singapore',    hours:'Mon to Sun, 10am to 9pm',  pg:null },
+  { key:'bishan',       code:'BIPL',  label:'Bishan',         name:'Bishan Public Library',             address:'5 Bishan Place #01-01 Junction 8',           maps:'https://maps.google.com/?q=Bishan+Public+Library+Singapore',         hours:'Mon to Sun, 10am to 9pm',  pg:null },
+  { key:'jurong',       code:'JRL',   label:'Jurong',         name:'Jurong Regional Library',           address:'21 Jurong East Central 1',                   maps:'https://maps.google.com/?q=Jurong+Regional+Library+Singapore',       hours:'Mon to Sun, 10am to 9pm',  pg:null },
+  { key:'amk',          code:'AMKPL', label:'Ang Mo Kio',     name:'Ang Mo Kio Public Library',         address:'4300 Ang Mo Kio Ave 6 #02-01',               maps:'https://maps.google.com/?q=Ang+Mo+Kio+Public+Library+Singapore',     hours:'Mon to Sun, 10am to 9pm',  pg:null },
+  { key:'bukitbatok',   code:'BBPL',  label:'Bukit Batok',    name:'Bukit Batok Public Library',        address:'1 Bukit Batok Central Link #03-01',          maps:'https://maps.google.com/?q=Bukit+Batok+Public+Library+Singapore',    hours:'Mon to Sun, 10am to 9pm',  pg:null },
+  { key:'bukitpanjang', code:'BPPL',  label:'Bukit Panjang',  name:'Bukit Panjang Public Library',      address:'1 Jelebu Road #04-01 Bukit Panjang Plaza',   maps:'https://maps.google.com/?q=Bukit+Panjang+Public+Library+Singapore', hours:'Mon to Sun, 10am to 9pm',  pg:null },
+  { key:'cck',          code:'CCKPL', label:'Choa Chu Kang',  name:'Choa Chu Kang Public Library',      address:'21 Choa Chu Kang Ave 4 #01-01',              maps:'https://maps.google.com/?q=Choa+Chu+Kang+Public+Library+Singapore', hours:'Mon to Sun, 10am to 9pm',  pg:null },
+  { key:'queenstown',   code:'QUPL',  label:'Queenstown',     name:'Queenstown Public Library',         address:'53 Margaret Drive',                          maps:'https://maps.google.com/?q=Queenstown+Public+Library+Singapore',    hours:'Mon to Sun, 10am to 9pm',  pg:null },
+  { key:'toapayoh',     code:'TPPL',  label:'Toa Payoh',      name:'Toa Payoh Public Library',          address:'6 Toa Payoh Central',                        maps:'https://maps.google.com/?q=Toa+Payoh+Public+Library+Singapore',     hours:'Mon to Sun, 10am to 9pm',  pg:null },
+  { key:'yishun',       code:'YIPL',  label:'Yishun',         name:'Yishun Public Library',             address:'930 Yishun Ave 2 #01-01',                    maps:'https://maps.google.com/?q=Yishun+Public+Library+Singapore',        hours:'Mon to Sun, 10am to 9pm',  pg:null },
+  { key:'sembawang',    code:'SBPL',  label:'Sembawang',      name:'Sembawang Public Library',          address:'30 Sembawang Drive #03-01',                  maps:'https://maps.google.com/?q=Sembawang+Public+Library+Singapore',     hours:'Mon to Sun, 10am to 9pm',  pg:null },
+  { key:'serangoon',    code:'SRPL',  label:'Serangoon',      name:'Serangoon Public Library',          address:'23 Serangoon Central #01-01 NEX',            maps:'https://maps.google.com/?q=Serangoon+Public+Library+Singapore',     hours:'Mon to Sun, 10am to 9pm',  pg:null },
+  { key:'bedok',        code:'BEPL',  label:'Bedok',          name:'Bedok Public Library',              address:'11 Bedok North Street 1 #01-01',             maps:'https://maps.google.com/?q=Bedok+Public+Library+Singapore',         hours:'Mon to Sun, 10am to 9pm',  pg:null },
+  { key:'sengkang',     code:'SKPL',  label:'Sengkang',       name:'Sengkang Public Library',           address:'1 Sengkang Square #03-01 Compass One',       maps:'https://maps.google.com/?q=Sengkang+Public+Library+Singapore',      hours:'Mon to Sun, 10am to 9pm',  pg:null },
+  { key:'marineparade', code:'MPPL',  label:'Marine Parade',  name:'Marine Parade Public Library',      address:'278 Marine Parade Road #02-01',              maps:'https://maps.google.com/?q=Marine+Parade+Public+Library+Singapore', hours:'Mon to Sun, 10am to 9pm',  pg:'East Coast Park is nearby.' },
+  { key:'jurongwest',   code:'JWPL',  label:'Jurong West',    name:'Jurong West Public Library',        address:'61 Jurong West Central 3 #04-01',            maps:'https://maps.google.com/?q=Jurong+West+Public+Library+Singapore',   hours:'Mon to Sun, 10am to 9pm',  pg:null },
+  { key:'orchard',      code:'OCPL',  label:'Orchard',        name:'Library@Orchard',                   address:'277 Orchard Road #03-12',                    maps:'https://maps.google.com/?q=Library+Orchard+Singapore',              hours:'Mon to Sun, 10am to 9pm',  pg:null },
+  { key:'chinatown',    code:'CNPL',  label:'Chinatown',      name:'Library@Chinatown',                 address:'133 New Bridge Road #04-28',                 maps:'https://maps.google.com/?q=Library+Chinatown+Singapore',            hours:'Mon to Sun, 10am to 9pm',  pg:null },
+  { key:'esplanade',    code:'EPPL',  label:'Esplanade',      name:'Library@Esplanade',                 address:'8 Raffles Ave #02-01 Esplanade',             maps:'https://maps.google.com/?q=Library+Esplanade+Singapore',            hours:'Mon to Sun, 10am to 9pm',  pg:null },
+  { key:'bukitmerah',   code:'BMPL',  label:'Bukit Merah',    name:'Bukit Merah Public Library',        address:'3730 Queensway #01-01 Alexandra Village',    maps:'https://maps.google.com/?q=Bukit+Merah+Public+Library+Singapore',   hours:'Mon to Sun, 10am to 9pm',  pg:null },
+  { key:'clementi',     code:'CMPL',  label:'Clementi',       name:'Clementi Public Library',           address:'3155 Commonwealth Ave West #05-53',          maps:'https://maps.google.com/?q=Clementi+Public+Library+Singapore',      hours:'Mon to Sun, 10am to 9pm',  pg:null },
+  { key:'harbourfront', code:'HBPL',  label:'Harbourfront',   name:'Harbourfront Community Library',    address:'1 Maritime Square #03-10',                   maps:'https://maps.google.com/?q=Harbourfront+Community+Library+Singapore',hours:'Mon to Fri 11am to 8pm, Sat to Sun 10am to 8pm', pg:null },
+];
+
+const CODE_TO_KEY = {};
+const KEY_TO_B    = {};
+BRANCHES.forEach(b => { CODE_TO_KEY[b.code] = b.key; KEY_TO_B[b.key] = b; });
+function branchByKey(k)  { return KEY_TO_B[k] || null; }
+function branchByCode(c) {
+  if (CODE_TO_KEY[c]) return KEY_TO_B[CODE_TO_KEY[c]];
+  const n = (c||'').toLowerCase();
+  return BRANCHES.find(b => b.name.toLowerCase().includes(n) || b.label.toLowerCase().includes(n)) || null;
+}
+
+/* ═══════════════════════════════
+   STATE
+═══════════════════════════════ */
+let reading      = loadLS('nlb_reading', []);
+let availCache   = {};
+let activeKeys   = loadLS('nlb_branches', ['geylang','central','tampines','pasirris']);
+let branchFilter = 'all';
+let availOnly    = false;
+let searchCache  = [];
+
+/* ═══════════════════════════════
+   PERSIST
+═══════════════════════════════ */
+function loadLS(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }
+function saveLS(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+function saveReading()  { saveLS('nlb_reading', reading); }
+function saveBranches() { saveLS('nlb_branches', activeKeys); }
+
+/* ═══════════════════════════════
+   TOAST
+═══════════════════════════════ */
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+/* ═══════════════════════════════
+   SEARCH
+═══════════════════════════════ */
+document.getElementById('mainSearch').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+document.addEventListener('click', e => { if (!e.target.closest('.search-wrap')) closeSearch(); });
+
+async function doSearch() {
+  const q   = document.getElementById('mainSearch').value.trim();
+  const btn = document.getElementById('searchBtn');
+  const el  = document.getElementById('searchResults');
+  if (!q) return;
+  el.innerHTML = '<div class="sr-loading"></div>';
+  el.classList.add('open');
+  btn.disabled = true;
+  try {
+    const res  = await fetch(`${PROXY}/search?q=${encodeURIComponent(q)}&limit=30`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    renderSearchResults(data.results || []);
+  } catch (err) {
+    el.innerHTML = `<div class="sr-msg">Could not reach NLB. Check your connection.<br><small style="opacity:0.6">${err.message}</small></div>`;
+  } finally { btn.disabled = false; }
+}
+
+function renderSearchResults(results) {
+  const el = document.getElementById('searchResults');
+  if (!results.length) {
+    el.innerHTML = '<div class="sr-msg">No books found. Try a different title or author.</div>';
+    return;
+  }
+  searchCache = results;
+  const onList = new Set(reading.map(b => String(b.brn)));
+  el.innerHTML = results.map((r, i) => {
+    const isBook  = !r.typeFlag || r.typeFlag === 'book';
+    const added   = onList.has(String(r.brn));
+    const initial = (r.title || '?')[0].toUpperCase();
+    const tf      = r.typeFlag || 'book';
+    const tl      = r.typeLabel || 'Book';
+    const meta    = [r.year, r.language].filter(Boolean).join(' · ');
+    return `<div class="sr-item">
+      <div class="sr-thumb"><span class="sr-initial">${initial}</span></div>
+      <div class="sr-body">
+        <div class="sr-title">${r.title}</div>
+        <div class="sr-author">${r.author || 'Author unknown'}</div>
+        ${meta ? `<div class="sr-meta">${meta}</div>` : ''}
+        <div class="sr-foot">
+          <span class="type-pill type-${tf}">${tl}</span>
+          ${isBook
+            ? `<button class="add-btn" data-i="${i}" ${added ? 'disabled' : ''}>${added ? 'On list' : '+ Add'}</button>`
+            : `<button class="add-btn" disabled>Physical only</button>`}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('searchResults').addEventListener('click', e => {
+  const btn = e.target.closest('.add-btn');
+  if (!btn || btn.disabled) return;
+  e.stopPropagation();
+  const book = searchCache[parseInt(btn.dataset.i)];
+  if (book) addBook(book, btn);
+});
+
+function closeSearch() {
+  setTimeout(() => document.getElementById('searchResults').classList.remove('open'), 150);
+}
+
+/* ═══════════════════════════════
+   READING LIST
+═══════════════════════════════ */
+function addBook(book, btn) {
+  if (reading.find(b => String(b.brn) === String(book.brn))) return;
+  const lang = typeof book.language === 'string' ? book.language
+             : Array.isArray(book.language) ? (book.language[0] || '') : '';
+  reading.push({ brn: book.brn, title: book.title||'', author: book.author||'', isbn: book.isbn||'', language: lang.toLowerCase(), avail: {} });
+  saveReading();
+  if (btn) { btn.textContent = 'On list'; btn.disabled = true; }
+  toast(`"${book.title}" added`);
+  renderBooks();
+  fetchAvail(book.brn).then(() => renderBooks());
+}
+
+function removeBook(brn) {
+  reading = reading.filter(b => String(b.brn) !== String(brn));
+  delete availCache[brn];
+  saveReading();
+  renderBooks();
+  toast('Removed from reading list');
+}
+
+/* ═══════════════════════════════
+   AVAILABILITY
+═══════════════════════════════ */
+async function fetchAvail(brn) {
+  const entry  = reading.find(b => String(b.brn) === String(brn));
+  const title  = entry ? encodeURIComponent(entry.title)  : '';
+  const author = entry ? encodeURIComponent(entry.author) : '';
+  const params = `brn=${encodeURIComponent(brn)}${title ? '&title=' + title : ''}${author ? '&author=' + author : ''}`;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
+    const res  = await fetch(`${PROXY}/availability?${params}`, { signal: controller.signal });
+    clearTimeout(timer);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    const mapped = {};
+    Object.entries(data.branches || {}).forEach(([code, info]) => {
+      const b = branchByCode(code);
+      if (b) mapped[b.key] = info;
+    });
+    availCache[brn] = mapped;
+    const e2 = reading.find(b => String(b.brn) === String(brn));
+    if (e2) { e2.avail = mapped; saveReading(); }
+    return mapped;
+  } catch (err) {
+    console.error('fetchAvail', brn, err.message);
+    availCache[brn] = { _failed: true };
+    return {};
+  }
+}
+
+async function retryAvail(brn) {
+  delete availCache[brn]; renderBooks();
+  await fetchAvail(brn); renderBooks();
+}
+
+async function refreshAll() {
+  const btn = document.querySelector('.ctrl-btn[onclick="refreshAll()"]');
+  if (btn) { btn.textContent = 'Refreshing...'; btn.disabled = true; }
+  await Promise.all(reading.map(b => fetchAvail(b.brn)));
+  renderBooks(); updateStamp();
+  if (btn) { btn.textContent = 'Refresh'; btn.disabled = false; }
+  toast('Availability refreshed');
+}
+
+/* ═══════════════════════════════
+   BRANCH PANEL
+═══════════════════════════════ */
+function buildBranchChecks() {
+  document.getElementById('branchChecks').innerHTML = BRANCHES.map(b =>
+    `<label class="bp-item"><input type="checkbox" value="${b.key}" ${activeKeys.includes(b.key) ? 'checked' : ''}> ${b.label}</label>`
+  ).join('');
+}
+function selectAllBranches() { document.querySelectorAll('#branchChecks input').forEach(c => c.checked = true); }
+function clearAllBranches()  { document.querySelectorAll('#branchChecks input').forEach(c => c.checked = false); }
+function applyBranches() {
+  const checked = [...document.querySelectorAll('#branchChecks input:checked')].map(c => c.value);
+  if (!checked.length) return;
+  activeKeys = checked; branchFilter = 'all'; saveBranches();
+  document.getElementById('branchPanel').classList.remove('open');
+  renderBranchStrip(); renderBooks();
+}
+function toggleBranchPanel() {
+  const p = document.getElementById('branchPanel');
+  if (!p.classList.contains('open')) buildBranchChecks();
+  p.classList.toggle('open');
+}
+
+/* ═══════════════════════════════
+   BRANCH STRIP
+═══════════════════════════════ */
+function renderBranchStrip() {
+  const strip = document.getElementById('branchStrip');
+  strip.innerHTML = '';
+
+  ['all', ...activeKeys].forEach(key => {
+    const b   = branchByKey(key);
+    const lbl = key === 'all' ? 'All branches' : (b ? b.label : key);
+    const tab = document.createElement('button');
+    tab.className = 'b-tab' + (branchFilter === key ? ' on' : '');
+    tab.textContent = lbl;
+    tab.onclick = () => { branchFilter = key; renderBranchStrip(); renderBooks(); };
+    strip.appendChild(tab);
+  });
+
+  const manage = document.createElement('button');
+  manage.className = 'b-manage'; manage.textContent = '+ manage';
+  manage.onclick = toggleBranchPanel; strip.appendChild(manage);
+
+  const plan = document.createElement('button');
+  plan.className = 'b-plan'; plan.textContent = 'Plan visit';
+  plan.onclick = planVisit; strip.appendChild(plan);
+}
+
+/* ═══════════════════════════════
+   SHELF PANEL (per card)
+═══════════════════════════════ */
+let openShelfBrn = null;
+let openShelfKey = null;
+
+function showShelf(brn, branchKey, el) {
+  const card   = el.closest('.book-card');
+  const panel  = card.querySelector('.shelf-panel');
+  const list   = document.getElementById('booksList');
+
+  // If same shelf already open, close it
+  if (openShelfBrn === brn && openShelfKey === branchKey && panel.classList.contains('open')) {
+    panel.classList.remove('open');
+    card.classList.remove('focus');
+    list.classList.remove('spotlit');
+    openShelfBrn = null; openShelfKey = null;
+    return;
+  }
+
+  // Close any other open shelf
+  document.querySelectorAll('.shelf-panel.open').forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.book-card.focus').forEach(c => c.classList.remove('focus'));
+
+  populateShelf(panel, brn, branchKey);
+  panel.classList.add('open');
+  card.classList.add('focus');
+  list.classList.add('spotlit');
+  openShelfBrn = brn; openShelfKey = branchKey;
+
+  // Scroll card into view smoothly
+  setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+}
+
+function closeShelf() {
+  document.querySelectorAll('.shelf-panel.open').forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.book-card.focus').forEach(c => c.classList.remove('focus'));
+  document.getElementById('booksList').classList.remove('spotlit');
+  openShelfBrn = null; openShelfKey = null;
+}
+
+function populateShelf(panel, brn, selKey) {
+  const avail     = availCache[brn] || {};
+  const hasSelf   = Object.keys(avail).filter(k => avail[k].status !== 'no' && avail[k].shelf?.callno);
+  const useKey    = hasSelf.includes(selKey) ? selKey : (hasSelf[0] || selKey);
+  const bData     = avail[useKey];
+  const bObj      = branchByKey(useKey);
+
+  let tabsHtml = '';
+  if (hasSelf.length > 1) {
+    tabsHtml = hasSelf.map(k => {
+      const b = branchByKey(k);
+      return `<button class="shelf-tab${k === useKey ? ' on' : ''}"
+        onclick="switchShelf(this.closest('.book-card').querySelector('.shelf-panel'),'${brn}','${k}')">${b ? b.label : k}</button>`;
+    }).join('');
+  }
+
+  if (!bData || !bData.shelf?.callno) {
+    panel.innerHTML = `<div class="shelf-inner">
+      <div class="shelf-top"><span class="shelf-branch-lbl">Shelf location · ${bObj ? bObj.label : useKey}</span><div class="shelf-tabs">${tabsHtml}</div></div>
+      <div class="shelf-na">No shelf details available. Check the NLB app for exact location.</div>
+      <div class="shelf-close-hint">tap the branch dot again to close</div>
+    </div>`;
+    return;
+  }
+
+  panel.innerHTML = `<div class="shelf-inner">
+    <div class="shelf-top"><span class="shelf-branch-lbl">Shelf location · ${bObj ? bObj.label : useKey}</span><div class="shelf-tabs">${tabsHtml}</div></div>
+    <div class="shelf-fields">
+      <div class="shelf-field"><div class="sf-lbl">Section</div><div class="sf-val">${bData.shelf.section || 'See branch'}</div></div>
+      <div class="shelf-field"><div class="sf-lbl">Call no.</div><div class="sf-val callno">${bData.shelf.callno}</div></div>
+    </div>
+    <div class="shelf-close-hint">tap the branch dot again to close</div>
+  </div>`;
+}
+
+function switchShelf(panel, brn, key) {
+  openShelfKey = key;
+  populateShelf(panel, brn, key);
+}
+
+/* ═══════════════════════════════
+   RENDER BOOKS
+═══════════════════════════════ */
+function getVisBranches() { return branchFilter === 'all' ? activeKeys : [branchFilter]; }
+function getAvail(brn, key) {
+  const d = (availCache[brn] || {})[key];
+  if (!d || d._failed) return { count: 0, status: 'no' };
+  return { count: d.available || 0, status: d.status || 'no' };
+}
+function getTotalAvail(brn) { return activeKeys.reduce((s, k) => s + getAvail(brn, k).count, 0); }
+
+function renderBooks() {
+  closeShelf();
+  const list = document.getElementById('booksList');
+  list.innerHTML = '';
+
+  if (!reading.length) {
+    list.innerHTML = `<div class="empty-state">
+      <div class="empty-title">Your reading list is empty</div>
+      <div class="empty-sub">Search for books above and add them to start planning your next library visit.</div>
+    </div>`;
+    updateSummary([]); return;
+  }
+
+  const vis      = getVisBranches();
+  const sortMode = document.getElementById('sortSel').value;
+  const langVal  = document.getElementById('langSel').value;
+
+  let books = reading.filter(b => {
+    if (langVal !== 'all' && b.language && b.language !== langVal) return false;
+    if (availOnly && !vis.some(k => getAvail(b.brn, k).status !== 'no')) return false;
+    return true;
+  });
+
+  if (sortMode === 'title') books.sort((a, b) => a.title.localeCompare(b.title));
+  else if (sortMode === 'avail') books.sort((a, b) => getTotalAvail(b.brn) - getTotalAvail(a.brn));
+
+  const noRes = document.getElementById('noResults');
+  if (!books.length) { noRes.style.display = 'block'; return; }
+  noRes.style.display = 'none';
+
+  books.forEach(book => {
+    const brn     = book.brn;
+    const cached  = availCache[brn];
+    const hasData = cached && !cached._failed;
+    const hasFail = cached && cached._failed;
+    const allLoan = hasData && vis.every(k => getAvail(brn, k).status === 'no');
+
+    // Branch dots
+    let dotsHtml = '';
+    if (!cached) {
+      dotsHtml = `<div class="shimmer-row">${[...Array(Math.min(vis.length,4))].map(() => '<div class="shimmer-dot"></div>').join('')}</div>`;
+    } else if (hasFail) {
+      dotsHtml = `<div class="avail-error"><span>Could not load</span><button class="retry-btn" onclick="retryAvail('${brn}')">Retry</button></div>`;
+    } else {
+      vis.forEach(key => {
+        const bObj     = branchByKey(key);
+        const a        = getAvail(brn, key);
+        const hasShelf = !!(cached[key]?.shelf?.callno);
+        const tappable = a.status !== 'no' && hasShelf;
+        const dotCls   = a.status === 'yes' ? 'dot-yes' : a.status === 'low' ? 'dot-low' : 'dot-no';
+        const lbl      = bObj ? bObj.label : key;
+        const count    = a.count > 0 ? `${a.count}` : '';
+        const tap      = tappable ? `onclick="showShelf('${brn}','${key}',this)"` : '';
+        dotsHtml += `<div class="dot-item${tappable ? ' tappable' : ''}" ${tap}>
+          <div class="dot ${dotCls}"></div>
+          <span class="dot-lbl">${lbl}</span>
+          ${count ? `<span class="dot-count">${count}</span>` : ''}
+        </div>`;
+      });
+    }
+
+    const card = document.createElement('div');
+    card.className = 'book-card' + (allLoan ? ' dim' : '');
+    card.innerHTML = `
+      <div class="idx-card">
+        <button class="rm-btn" onclick="removeBook('${brn}')">remove</button>
+        <div class="book-title">${book.title}</div>
+        <div class="book-author">${book.author || ''}</div>
+        <div class="book-meta">${book.isbn ? 'ISBN ' + book.isbn : 'BRN ' + brn}</div>
+        ${hasData && !allLoan ? '<div class="flip-hint">tap an available branch to see shelf location</div>' : ''}
+        ${allLoan ? '<div class="flip-hint" style="color:var(--terracotta);opacity:0.6">All copies currently on loan</div>' : ''}
+      </div>
+      <div class="shelf-panel"></div>
+      <div class="dot-row">${dotsHtml}</div>`;
+
+    list.appendChild(card);
+  });
+
+  updateSummary(books);
+  document.getElementById('legCount').textContent = reading.length + ' title' + (reading.length !== 1 ? 's' : '');
+}
+
+function updateSummary(books) {
+  const vis = getVisBranches();
+  let avail = 0, low = 0, loan = 0;
+  books.forEach(b => {
+    const statuses = vis.map(k => getAvail(b.brn, k).status);
+    if      (statuses.includes('yes')) avail++;
+    else if (statuses.includes('low')) low++;
+    else                               loan++;
+  });
+  document.getElementById('sTotal').textContent = books.length;
+  document.getElementById('sAvail').textContent = avail;
+  document.getElementById('sLow').textContent   = low;
+  document.getElementById('sLoan').textContent  = loan;
+}
+
+/* ═══════════════════════════════
+   FILTER CONTROLS
+═══════════════════════════════ */
+function toggleAvailFilter() {
+  availOnly = !availOnly;
+  document.getElementById('availToggle').classList.toggle('on', availOnly);
+  renderBooks();
+}
+
+/* ═══════════════════════════════
+   PLAN MY VISIT
+═══════════════════════════════ */
+function planVisit() {
+  let bestKey = null, bestScore = -1;
+  activeKeys.forEach(key => {
+    const score = reading.reduce((s, b) => s + getAvail(b.brn, key).count, 0);
+    if (score > bestScore) { bestScore = score; bestKey = key; }
+  });
+  const branch = branchByKey(bestKey);
+  if (!branch) return;
+  const count = reading.filter(b => getAvail(b.brn, bestKey).status !== 'no').length;
+
+  document.getElementById('planName').textContent  = branch.name;
+  document.getElementById('planAvail').textContent = count + ' of your books available here';
+  document.getElementById('planAddr').textContent  = branch.address;
+  document.getElementById('planMaps').href         = branch.maps;
+  document.getElementById('planHours').textContent = branch.hours;
+
+  const pg = document.getElementById('planPg');
+  if (branch.pg) { pg.style.display = 'block'; pg.innerHTML = `<span class="pg-lbl">nearby playground</span>${branch.pg}`; }
+  else { pg.style.display = 'none'; }
+
+  const box = document.getElementById('planBox');
+  box.classList.add('open');
+  const bb = document.getElementById('bestBet');
+  bb.classList.remove('bet-animate'); void bb.offsetWidth; bb.classList.add('bet-animate');
+  box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closePlan() {
+  document.getElementById('planBox').classList.remove('open');
+  const bb = document.getElementById('bestBet');
+  bb.classList.remove('bet-animate'); bb.style.opacity = '0';
+}
+
+/* ═══════════════════════════════
+   TIMESTAMP
+═══════════════════════════════ */
+function updateStamp() {
+  const d = new Date();
+  document.getElementById('lastChecked').textContent =
+    `${d.getDate()} ${d.toLocaleString('en-SG',{month:'short'})} ${d.getFullYear()}`;
+}
+
+/* ═══════════════════════════════
+   INIT
+═══════════════════════════════ */
+async function init() {
+  updateStamp();
+  renderBranchStrip();
+  reading.forEach(b => { if (b.avail && Object.keys(b.avail).length) availCache[b.brn] = b.avail; });
+  renderBooks();
+  if (reading.length) {
+    await Promise.all(reading.map(b => fetchAvail(b.brn)));
+    renderBooks(); updateStamp();
+  }
+}
+
+init();
+</script>
+</body>
+</html>
